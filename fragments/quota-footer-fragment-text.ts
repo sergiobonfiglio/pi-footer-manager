@@ -1,0 +1,475 @@
+import type { ExtensionAPI, Theme } from "@earendil-works/pi-coding-agent";
+import {
+  FOOTER_MANAGER_REGISTER_FRAGMENT,
+  type FooterFragmentRegistration,
+} from "../footer-manager/types";
+import { execSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
+
+interface RateWindow {
+  label: string;
+  usedPercent: number;
+  resetsIn?: string;
+}
+
+interface UsageSnapshot {
+  provider: string;
+  windows: RateWindow[];
+  error?: string;
+  fetchedAt: number;
+}
+
+const FRAGMENT_ID = "quota.current.text";
+const USAGE_REFRESH_INTERVAL = 5 * 60_000;
+const usageCache = new Map<string, UsageSnapshot>();
+
+const PROVIDER_MAP: Record<string, string> = {
+  anthropic: "claude",
+  "openai-codex": "codex",
+  "github-copilot": "copilot",
+  "google-gemini-cli": "gemini",
+  minimax: "minimax",
+  "minimax-cn": "minimax-cn",
+  "kimi-coding": "kimi-coding",
+  openrouter: "openrouter",
+};
+
+function loadAuthJson(): Record<string, any> {
+  const authPath = join(homedir(), ".pi", "agent", "auth.json");
+  try {
+    if (existsSync(authPath)) return JSON.parse(readFileSync(authPath, "utf-8"));
+  } catch {}
+  return {};
+}
+
+function resolveAuthValue(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+
+  if (trimmed.startsWith("!")) {
+    try {
+      return execSync(trimmed.slice(1), { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"], timeout: 2000 }).trim() || undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  if (/^[A-Z][A-Z0-9_]*$/.test(trimmed) && process.env[trimmed]) return process.env[trimmed];
+  return trimmed;
+}
+
+function getApiKey(providerKey: string, envVar: string): string | undefined {
+  if (process.env[envVar]) return process.env[envVar];
+  const entry = loadAuthJson()[providerKey];
+  if (!entry) return undefined;
+  return typeof entry === "string" ? resolveAuthValue(entry) : resolveAuthValue(entry.key ?? entry.access ?? entry.refresh);
+}
+
+function getClaudeToken(): string | undefined {
+  const auth = loadAuthJson();
+  if (auth.anthropic?.access) return auth.anthropic.access;
+
+  try {
+    const keychainData = execSync('security find-generic-password -s "Claude Code-credentials" -w 2>/dev/null', {
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
+      timeout: 2000,
+    }).trim();
+    if (keychainData) return JSON.parse(keychainData).claudeAiOauth?.accessToken;
+  } catch {}
+
+  return undefined;
+}
+
+function getCopilotToken(): string | undefined {
+  return loadAuthJson()["github-copilot"]?.refresh;
+}
+
+function getCodexToken(): { token: string; accountId?: string } | undefined {
+  const auth = loadAuthJson();
+  if (auth["openai-codex"]?.access) {
+    return { token: auth["openai-codex"].access, accountId: auth["openai-codex"]?.accountId };
+  }
+
+  const codexPath = join(process.env.CODEX_HOME || join(homedir(), ".codex"), "auth.json");
+  try {
+    if (!existsSync(codexPath)) return undefined;
+    const data = JSON.parse(readFileSync(codexPath, "utf-8"));
+    if (data.OPENAI_API_KEY) return { token: data.OPENAI_API_KEY };
+    if (data.tokens?.access_token) return { token: data.tokens.access_token, accountId: data.tokens.account_id };
+  } catch {}
+
+  return undefined;
+}
+
+function getGeminiToken(): string | undefined {
+  const auth = loadAuthJson();
+  if (auth["google-gemini-cli"]?.access) return auth["google-gemini-cli"].access;
+
+  const geminiPath = join(homedir(), ".gemini", "oauth_creds.json");
+  try {
+    if (existsSync(geminiPath)) return JSON.parse(readFileSync(geminiPath, "utf-8")).access_token;
+  } catch {}
+
+  return undefined;
+}
+
+function getMinimaxToken(provider: "minimax" | "minimax-cn"): string | undefined {
+  return provider === "minimax" ? getApiKey("minimax", "MINIMAX_API_KEY") : getApiKey("minimax-cn", "MINIMAX_CN_API_KEY");
+}
+
+function getKimiToken(): string | undefined {
+  return getApiKey("kimi-coding", "KIMI_API_KEY");
+}
+
+function getOpenRouterToken(): string | undefined {
+  return getApiKey("openrouter", "OPENROUTER_API_KEY");
+}
+
+function clampPercent(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(100, value));
+}
+
+function normalizePercent(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return clampPercent(value <= 1 && value >= 0 ? value * 100 : value);
+}
+
+function formatResetTime(date: Date): string {
+  const diffMins = Math.floor((date.getTime() - Date.now()) / 60_000);
+  if (diffMins < 0) return "now";
+  if (diffMins < 60) return `${diffMins}m`;
+  const hours = Math.floor(diffMins / 60);
+  const mins = diffMins % 60;
+  if (hours < 24) return mins ? `${hours}h${mins}m` : `${hours}h`;
+  const days = Math.floor(hours / 24);
+  const rest = hours % 24;
+  return rest ? `${days}d${rest}h` : `${days}d`;
+}
+
+function getWindowLabel(durationMs: number | undefined, fallback: string): string {
+  if (!durationMs || !Number.isFinite(durationMs) || durationMs <= 0) return fallback;
+  const hourMs = 60 * 60 * 1000;
+  const dayMs = 24 * hourMs;
+  const weekMs = 7 * dayMs;
+  if (Math.abs(durationMs - weekMs) <= hourMs * 2 || fallback === "Week") return "Week";
+  if (Math.abs(durationMs - dayMs) <= hourMs * 2 || fallback === "Day") return "Day";
+  if (Math.abs(durationMs - 5 * hourMs) <= hourMs * 2 || fallback === "5h") return fallback;
+  const hours = Math.round(durationMs / hourMs);
+  if (hours >= 1 && hours < 48) return `${hours}h`;
+  const days = Math.round(durationMs / dayMs);
+  return days >= 1 ? `${days}d` : `${Math.max(1, Math.round(durationMs / 60_000))}m`;
+}
+
+async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs = 5000): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function fetchClaudeUsage(): Promise<UsageSnapshot> {
+  const token = getClaudeToken();
+  if (!token) return { provider: "Claude", windows: [], error: "no-auth", fetchedAt: Date.now() };
+
+  try {
+    const res = await fetchWithTimeout("https://api.anthropic.com/api/oauth/usage", {
+      headers: { Authorization: `Bearer ${token}`, "anthropic-beta": "oauth-2025-04-20" },
+    });
+    if (!res.ok) return { provider: "Claude", windows: [], error: `HTTP ${res.status}`, fetchedAt: Date.now() };
+    const data = (await res.json()) as any;
+    const windows: RateWindow[] = [];
+    if (data.five_hour?.utilization !== undefined) {
+      windows.push({ label: "5h", usedPercent: normalizePercent(data.five_hour.utilization), resetsIn: data.five_hour.resets_at ? formatResetTime(new Date(data.five_hour.resets_at)) : undefined });
+    }
+    if (data.seven_day?.utilization !== undefined) {
+      windows.push({ label: "Week", usedPercent: normalizePercent(data.seven_day.utilization), resetsIn: data.seven_day.resets_at ? formatResetTime(new Date(data.seven_day.resets_at)) : undefined });
+    }
+    return { provider: "Claude", windows, fetchedAt: Date.now() };
+  } catch (error) {
+    return { provider: "Claude", windows: [], error: String(error), fetchedAt: Date.now() };
+  }
+}
+
+async function fetchCopilotUsage(): Promise<UsageSnapshot> {
+  const token = getCopilotToken();
+  if (!token) return { provider: "Copilot", windows: [], error: "no-auth", fetchedAt: Date.now() };
+
+  try {
+    const res = await fetchWithTimeout("https://api.github.com/copilot_internal/user", {
+      headers: {
+        "Editor-Version": "vscode/1.96.2",
+        "User-Agent": "GitHubCopilotChat/0.26.7",
+        "X-Github-Api-Version": "2025-04-01",
+        Accept: "application/json",
+        Authorization: `token ${token}`,
+      },
+    });
+    if (!res.ok) return { provider: "Copilot", windows: [], error: `HTTP ${res.status}`, fetchedAt: Date.now() };
+    const data = (await res.json()) as any;
+    const resetDate = data.quota_reset_date_utc ? new Date(data.quota_reset_date_utc) : undefined;
+    const resetsIn = resetDate ? formatResetTime(resetDate) : undefined;
+    const windows: RateWindow[] = [];
+    if (data.quota_snapshots?.premium_interactions) windows.push({ label: "Premium", usedPercent: clampPercent(100 - (data.quota_snapshots.premium_interactions.percent_remaining || 0)), resetsIn });
+    if (data.quota_snapshots?.chat && !data.quota_snapshots.chat.unlimited) windows.push({ label: "Chat", usedPercent: clampPercent(100 - (data.quota_snapshots.chat.percent_remaining || 0)), resetsIn });
+    return { provider: "Copilot", windows, fetchedAt: Date.now() };
+  } catch (error) {
+    return { provider: "Copilot", windows: [], error: String(error), fetchedAt: Date.now() };
+  }
+}
+
+async function fetchCodexUsage(): Promise<UsageSnapshot> {
+  const creds = getCodexToken();
+  if (!creds) return { provider: "Codex", windows: [], error: "no-auth", fetchedAt: Date.now() };
+
+  try {
+    const headers: Record<string, string> = { Authorization: `Bearer ${creds.token}`, "User-Agent": "pi-agent", Accept: "application/json" };
+    if (creds.accountId) headers["ChatGPT-Account-Id"] = creds.accountId;
+    const res = await fetchWithTimeout("https://chatgpt.com/backend-api/wham/usage", { method: "GET", headers });
+    if (!res.ok) return { provider: "Codex", windows: [], error: `HTTP ${res.status}`, fetchedAt: Date.now() };
+    const data = (await res.json()) as any;
+    const windows: RateWindow[] = [];
+    if (data.rate_limit?.primary_window) {
+      const pw = data.rate_limit.primary_window;
+      windows.push({ label: getWindowLabel(typeof pw.limit_window_seconds === "number" ? pw.limit_window_seconds * 1000 : undefined, "5h"), usedPercent: clampPercent(pw.used_percent || 0), resetsIn: pw.reset_at ? formatResetTime(new Date(pw.reset_at * 1000)) : undefined });
+    }
+    if (data.rate_limit?.secondary_window) {
+      const sw = data.rate_limit.secondary_window;
+      windows.push({ label: getWindowLabel(typeof sw.limit_window_seconds === "number" ? sw.limit_window_seconds * 1000 : undefined, "Week"), usedPercent: clampPercent(sw.used_percent || 0), resetsIn: sw.reset_at ? formatResetTime(new Date(sw.reset_at * 1000)) : undefined });
+    }
+    return { provider: "Codex", windows, fetchedAt: Date.now() };
+  } catch (error) {
+    return { provider: "Codex", windows: [], error: String(error), fetchedAt: Date.now() };
+  }
+}
+
+async function fetchGeminiUsage(): Promise<UsageSnapshot> {
+  const token = getGeminiToken();
+  if (!token) return { provider: "Gemini", windows: [], error: "no-auth", fetchedAt: Date.now() };
+
+  try {
+    const res = await fetchWithTimeout("https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: "{}",
+    });
+    if (!res.ok) return { provider: "Gemini", windows: [], error: `HTTP ${res.status}`, fetchedAt: Date.now() };
+    const data = (await res.json()) as any;
+    const quotas: Record<string, number> = {};
+    for (const bucket of data.buckets || []) {
+      const model = bucket.modelId || "unknown";
+      const frac = bucket.remainingFraction ?? 1;
+      if (!quotas[model] || frac < quotas[model]) quotas[model] = frac;
+    }
+    let proMin = 1;
+    let flashMin = 1;
+    let hasPro = false;
+    let hasFlash = false;
+    for (const [model, frac] of Object.entries(quotas)) {
+      if (model.toLowerCase().includes("pro")) {
+        hasPro = true;
+        if (frac < proMin) proMin = frac;
+      }
+      if (model.toLowerCase().includes("flash")) {
+        hasFlash = true;
+        if (frac < flashMin) flashMin = frac;
+      }
+    }
+    const windows: RateWindow[] = [];
+    if (hasPro) windows.push({ label: "Pro", usedPercent: clampPercent((1 - proMin) * 100) });
+    if (hasFlash) windows.push({ label: "Flash", usedPercent: clampPercent((1 - flashMin) * 100) });
+    return { provider: "Gemini", windows, fetchedAt: Date.now() };
+  } catch (error) {
+    return { provider: "Gemini", windows: [], error: String(error), fetchedAt: Date.now() };
+  }
+}
+
+async function fetchMinimaxUsage(provider: "minimax" | "minimax-cn"): Promise<UsageSnapshot> {
+  const token = getMinimaxToken(provider);
+  const providerLabel = provider === "minimax-cn" ? "MiniMax CN" : "MiniMax";
+  const endpoint = provider === "minimax-cn" ? "https://api.minimaxi.com/v1/api/openplatform/coding_plan/remains" : "https://api.minimax.io/v1/api/openplatform/coding_plan/remains";
+  if (!token) return { provider: providerLabel, windows: [], error: "no-auth", fetchedAt: Date.now() };
+
+  try {
+    const res = await fetchWithTimeout(endpoint, { method: "GET", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } });
+    if (!res.ok) return { provider: providerLabel, windows: [], error: `HTTP ${res.status}`, fetchedAt: Date.now() };
+    const data = (await res.json()) as any;
+    const remains = Array.isArray(data?.model_remains) ? data.model_remains : [];
+    const bucket = remains.find((entry: any) => typeof entry?.model_name === "string" && /^minimax-m/i.test(entry.model_name)) || remains.find((entry: any) => typeof entry?.model_name === "string" && /minimax/i.test(entry.model_name)) || remains[0];
+    if (!bucket) return { provider: providerLabel, windows: [], error: "no-usage-data", fetchedAt: Date.now() };
+    const windows: RateWindow[] = [];
+    const intervalTotal = Number(bucket.current_interval_total_count) || 0;
+    const intervalRemaining = Number(bucket.current_interval_usage_count) || 0;
+    if (intervalTotal > 0) windows.push({ label: getWindowLabel(bucket.start_time && bucket.end_time ? Number(bucket.end_time) - Number(bucket.start_time) : undefined, "5h"), usedPercent: clampPercent(((intervalTotal - intervalRemaining) / intervalTotal) * 100), resetsIn: bucket.end_time ? formatResetTime(new Date(Number(bucket.end_time))) : undefined });
+    const weeklyTotal = Number(bucket.current_weekly_total_count) || 0;
+    const weeklyRemaining = Number(bucket.current_weekly_usage_count) || 0;
+    if (weeklyTotal > 0) windows.push({ label: "Week", usedPercent: clampPercent(((weeklyTotal - weeklyRemaining) / weeklyTotal) * 100), resetsIn: bucket.weekly_end_time ? formatResetTime(new Date(Number(bucket.weekly_end_time))) : undefined });
+    return { provider: providerLabel, windows, fetchedAt: Date.now() };
+  } catch (error) {
+    return { provider: providerLabel, windows: [], error: String(error), fetchedAt: Date.now() };
+  }
+}
+
+async function fetchKimiUsage(): Promise<UsageSnapshot> {
+  const token = getKimiToken();
+  if (!token) return { provider: "Kimi Coding", windows: [], error: "no-auth", fetchedAt: Date.now() };
+
+  try {
+    const res = await fetchWithTimeout("https://api.kimi.com/coding/v1/usages", { method: "GET", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } });
+    if (!res.ok) return { provider: "Kimi Coding", windows: [], error: `HTTP ${res.status}`, fetchedAt: Date.now() };
+    const data = (await res.json()) as any;
+    const windows: RateWindow[] = [];
+    for (const limit of data.limits || []) {
+      const total = Number(limit.detail?.limit) || 0;
+      const remaining = Number(limit.detail?.remaining) || 0;
+      if (total > 0) windows.push({ label: getWindowLabel(limit.window?.duration && limit.window?.timeUnit === "TIME_UNIT_MINUTE" ? limit.window.duration * 60 * 1000 : undefined, "5h"), usedPercent: clampPercent(((total - remaining) / total) * 100), resetsIn: limit.detail?.resetTime ? formatResetTime(new Date(limit.detail.resetTime)) : undefined });
+    }
+    const weeklyLimit = Number(data.usage?.limit) || 0;
+    const weeklyRemaining = Number(data.usage?.remaining) || 0;
+    if (weeklyLimit > 0) windows.push({ label: "Weekly", usedPercent: clampPercent(((weeklyLimit - weeklyRemaining) / weeklyLimit) * 100), resetsIn: data.usage?.resetTime ? formatResetTime(new Date(data.usage.resetTime)) : undefined });
+    return { provider: "Kimi Coding", windows, fetchedAt: Date.now() };
+  } catch (error) {
+    return { provider: "Kimi Coding", windows: [], error: String(error), fetchedAt: Date.now() };
+  }
+}
+
+async function fetchOpenRouterUsage(): Promise<UsageSnapshot> {
+  const token = getOpenRouterToken();
+  if (!token) return { provider: "OpenRouter", windows: [], error: "no-auth", fetchedAt: Date.now() };
+
+  try {
+    const res = await fetchWithTimeout("https://openrouter.ai/api/v1/credits", {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
+    });
+    if (!res.ok) return { provider: "OpenRouter", windows: [], error: `HTTP ${res.status}`, fetchedAt: Date.now() };
+    const data = (await res.json()) as any;
+    const totalCredits = Number(data?.data?.total_credits);
+    const totalUsage = Number(data?.data?.total_usage);
+    if (!Number.isFinite(totalCredits) || totalCredits <= 0 || !Number.isFinite(totalUsage)) {
+      return { provider: "OpenRouter", windows: [], error: "no-usage-data", fetchedAt: Date.now() };
+    }
+
+    const remainingCredits = Math.max(0, totalCredits - totalUsage);
+    const usedPercent = clampPercent((totalUsage / totalCredits) * 100);
+    const remainingText = `$${remainingCredits.toFixed(2)} left`;
+    return {
+      provider: "OpenRouter",
+      windows: [{ label: "Credits", usedPercent, resetsIn: remainingText }],
+      fetchedAt: Date.now(),
+    };
+  } catch (error) {
+    return { provider: "OpenRouter", windows: [], error: String(error), fetchedAt: Date.now() };
+  }
+}
+
+async function fetchUsageForProvider(provider: string): Promise<UsageSnapshot> {
+  switch (provider) {
+    case "claude":
+      return fetchClaudeUsage();
+    case "codex":
+      return fetchCodexUsage();
+    case "copilot":
+      return fetchCopilotUsage();
+    case "gemini":
+      return fetchGeminiUsage();
+    case "minimax":
+      return fetchMinimaxUsage("minimax");
+    case "minimax-cn":
+      return fetchMinimaxUsage("minimax-cn");
+    case "kimi-coding":
+      return fetchKimiUsage();
+    case "openrouter":
+      return fetchOpenRouterUsage();
+    default:
+      return { provider: "Unknown", windows: [], error: "unknown-provider", fetchedAt: Date.now() };
+  }
+}
+
+function renderUsageWindow(window: RateWindow, theme: Theme, separator: string, provider?: string): string {
+  const clamped = clampPercent(window.usedPercent);
+  const color = clamped >= 92 ? "error" : clamped >= 85 ? "warning" : "success";
+  const pct = theme.fg(color, `${Math.round(clamped)}%`);
+  if (provider === "OpenRouter") {
+    const details = window.resetsIn ? `${theme.fg("dim", separator)}${theme.fg("dim", window.resetsIn)}` : "";
+    return `${pct}${details}`;
+  }
+  const reset = window.resetsIn ? theme.fg("dim", ` ${window.resetsIn}`) : "";
+  return `${theme.fg("dim", window.label)} ${pct}${reset}`;
+}
+
+function renderUsage(usage: UsageSnapshot, theme: Theme, separator: string): string {
+  if (!usage.windows.length) return "";
+  return [theme.fg("accent", usage.provider), ...usage.windows.map((window) => renderUsageWindow(window, theme, separator, usage.provider))].join(theme.fg("dim", separator));
+}
+
+export default function (pi: ExtensionAPI) {
+  let refreshCurrent: (() => void) | undefined;
+
+  const registration: FooterFragmentRegistration = {
+    id: FRAGMENT_ID,
+    label: "Current quota (text)",
+    component: (env) => {
+      let latestUsage: UsageSnapshot | null = null;
+      let activeProvider: string | null = null;
+      let disposed = false;
+
+      const refresh = () => {
+        const modelProvider = env.ctx.model?.provider;
+        const provider = modelProvider ? PROVIDER_MAP[modelProvider] : undefined;
+        if (!provider) {
+          activeProvider = null;
+          latestUsage = null;
+          env.invalidate();
+          return;
+        }
+
+        activeProvider = provider;
+        const cached = usageCache.get(provider);
+        if (cached?.windows.length) {
+          latestUsage = cached;
+          env.invalidate();
+        }
+
+        fetchUsageForProvider(provider)
+          .then((usage) => {
+            if (disposed || activeProvider !== provider) return;
+            if (usage.windows.length === 0 && usage.error && cached?.windows.length) return;
+            usageCache.set(provider, usage);
+            latestUsage = usage;
+            env.invalidate();
+          })
+          .catch(() => {});
+      };
+
+      refreshCurrent = refresh;
+      refresh();
+      const interval = setInterval(refresh, USAGE_REFRESH_INTERVAL);
+
+      return {
+        render() {
+          return latestUsage ? renderUsage(latestUsage, env.theme, env.separator) : "";
+        },
+        dispose() {
+          disposed = true;
+          clearInterval(interval);
+          if (refreshCurrent === refresh) refreshCurrent = undefined;
+        },
+      };
+    },
+  };
+
+  pi.events.emit(FOOTER_MANAGER_REGISTER_FRAGMENT, registration);
+
+  pi.on("model_select", async () => {
+    refreshCurrent?.();
+  });
+
+}
