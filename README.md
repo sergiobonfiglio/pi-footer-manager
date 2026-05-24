@@ -9,10 +9,10 @@ One footer, many extensions: build flexible Pi footers from reusable fragments w
 ## Included extensions
 
 - `footer-manager/index.ts` — cooperative footer owner
-- `fragments/footer-timer-fragment.ts`
-- `fragments/quota-footer-fragment.ts`
-- `fragments/quota-footer-fragment-text.ts`
-- `fragments/context-gauge-text-fragment.ts`
+- `fragments/footer-timer-fragment.ts` — example fragment showing elapsed work time
+- `fragments/quota-footer-fragment.ts` — richer quota usage display for supported providers
+- `fragments/quota-footer-fragment-text.ts` — text-focused quota usage display
+- `fragments/context-gauge-text-fragment.ts` — text version of context usage
 
 ## How configuration works
 
@@ -93,28 +93,68 @@ In mixed layouts, fixed fractional regions are allocated first and the remaining
 }
 ```
 
+## Widths and overflow
+
+Think of each row as a fixed-width bar split into regions:
+
+```text
+[ left region                              ][       right region ]
+```
+
+For this layout:
+
+```json
+{
+  "regions": [
+    { "align": "left", "fragments": ["cwd.full", "git.branch"] },
+    { "width": 0.35, "align": "right", "fragments": ["model.name", "statuses"] }
+  ]
+}
+```
+
+The row behaves roughly like this:
+
+```text
+[ cwd.full > git.branch                    ][ model.name > statuses ]
+```
+
+Rules of thumb:
+
+- fixed fractional regions get their width first
+- `"auto"` regions get the remaining space
+- if content does not fit, fragments are dropped before the final visible fragment is truncated
+- left- and center-aligned regions drop fragments from the right
+- right-aligned regions drop fragments from the left
+
+Multi-row layouts behave like stacked bars:
+
+```text
+row 1: [ cwd.full > git.branch           ][ model.name > statuses ]
+row 2: [ context.gauge.text > timer.work                         ]
+```
+
 ## Built-in fragments
 
 Main built-ins provided by `footer-manager` include:
 
-- `cwd.full`
-- `git.branch`
-- `model.name`
-- `model.cost`
-- `model.cacheCost`
-- `cache.hit`
-- `cache.hit_counts`
-- `thinking.level`
-- `context.gauge`
-- `cost.total`
-- `statuses`
+- `cwd.full` — full path of the current working directory
+- `git.branch` — current Git branch for the active working tree
+- `model.name` — active model name
+- `model.cost` — input/output token pricing for the active model
+- `model.cacheCost` — cached token read/write pricing for the active model
+- `cache.hit` — cache hit rate summary
+- `cache.hit_counts` — cache hit rate with read/write token counts
+- `thinking.level` — current reasoning/thinking level
+- `context.gauge` — graphical context usage indicator
+- `cost.total` — total accumulated session cost
+- `statuses` — status items contributed through Pi status APIs
 
 The included fragment extensions add examples like:
 
-- `timer.work`
-- `context.gauge.text`
-- `quota.current`
-- `quota.current.text`
+- `timer.work` — elapsed time for the current agent run
+- `context.gauge.text` — text version of context usage
+- `quota.current` — quota usage summary for supported providers
+- `quota.current.text` — text-focused quota usage summary
 
 ## Custom fragments
 
