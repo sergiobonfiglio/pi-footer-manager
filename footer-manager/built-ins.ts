@@ -1,6 +1,6 @@
 import { buildSessionContext, type ExtensionContext, type Theme } from "@earendil-works/pi-coding-agent";
 import { homedir } from "node:os";
-import type { FooterFragmentRegistration, FooterRenderEnv } from "./types.js";
+import type { FooterFragmentRegistration, FooterRenderEnv } from "./types.ts";
 
 export type BuiltInFragmentsOptions = {
   getSeparator: () => string;

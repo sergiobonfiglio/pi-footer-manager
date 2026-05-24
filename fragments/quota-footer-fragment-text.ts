@@ -3,7 +3,7 @@ import {
   FOOTER_MANAGER_REGISTER_FRAGMENT,
   type FooterFragmentRegistration,
   type FooterRenderEnv,
-} from "../footer-manager/types.js";
+} from "../footer-manager/types.ts";
 import { execSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";

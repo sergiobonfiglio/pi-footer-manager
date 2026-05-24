@@ -4,7 +4,7 @@ import {
   FOOTER_MANAGER_UNREGISTER_FRAGMENT,
   type FooterFragmentRegistration,
   type FooterRenderEnv,
-} from "../footer-manager/types.js";
+} from "../footer-manager/types.ts";
 
 const FRAGMENT_ID = "context.gauge.text";
 

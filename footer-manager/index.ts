@@ -6,7 +6,7 @@ import {
   type Theme,
 } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth, type TUI } from "@earendil-works/pi-tui";
-import { createBuiltInFragments } from "./built-ins.js";
+import { createBuiltInFragments } from "./built-ins.ts";
 import {
   FOOTER_MANAGER_INVALIDATE,
   FOOTER_MANAGER_REGISTER_FRAGMENT,
@@ -17,7 +17,7 @@ import {
   type FooterRegionAlign,
   type FooterRegionWidth,
   type FooterRenderEnv,
-} from "./types.js";
+} from "./types.ts";
 
 type ValidLayout = Required<Pick<FooterLayoutConfig, "separator" | "rows">>;
 type Region = ValidLayout["rows"][number]["regions"][number];

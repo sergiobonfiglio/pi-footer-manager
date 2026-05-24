@@ -2,7 +2,7 @@ export {
   FOOTER_MANAGER_REGISTER_FRAGMENT,
   FOOTER_MANAGER_UNREGISTER_FRAGMENT,
   FOOTER_MANAGER_INVALIDATE,
-} from "./types.js";
+} from "./types.ts";
 
 export type {
   FooterFragmentRegistration,
@@ -14,4 +14,4 @@ export type {
   FooterRowConfig,
   FooterLayoutConfig,
   FooterManagerSettings,
-} from "./types.js";
+} from "./types.ts";
