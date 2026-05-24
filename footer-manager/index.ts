@@ -6,7 +6,7 @@ import {
   type Theme,
 } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth, type TUI } from "@earendil-works/pi-tui";
-import { createBuiltInFragments } from "./built-ins";
+import { createBuiltInFragments } from "./built-ins.js";
 import {
   FOOTER_MANAGER_INVALIDATE,
   FOOTER_MANAGER_REGISTER_FRAGMENT,
@@ -17,7 +17,7 @@ import {
   type FooterRegionAlign,
   type FooterRegionWidth,
   type FooterRenderEnv,
-} from "./types";
+} from "./types.js";
 
 type ValidLayout = Required<Pick<FooterLayoutConfig, "separator" | "rows">>;
 type Region = ValidLayout["rows"][number]["regions"][number];
@@ -403,7 +403,7 @@ class FooterManager {
   private renderRegionContent(region: Region, width: number): string {
     if (width <= 0 || region.fragments.length === 0) return "";
     const sep = this.theme?.fg("dim", this.layout.separator) ?? this.layout.separator;
-    let parts = region.fragments.map((id) => this.renderFragment(id, width)).filter((part): part is string => part !== undefined && visibleWidth(part) > 0);
+    let parts = region.fragments.map((id: string) => this.renderFragment(id, width)).filter((part): part is string => part !== undefined && visibleWidth(part) > 0);
     while (parts.length > 1 && visibleWidth(parts.join(sep)) > width) {
       parts = region.align === "right" ? parts.slice(1) : parts.slice(0, -1);
     }
@@ -427,8 +427,8 @@ class FooterManager {
       const gapWidth = Math.max(0, row.regions.length - 1);
       const contentWidth = Math.max(0, safeWidth - gapWidth);
       const widths = allocateWidths(row.regions, contentWidth, (region) => this.measureRegion(region, contentWidth));
-      const regions = row.regions.map((region, i) => this.renderRegion(region, widths[i] ?? 0));
-      const hasContent = regions.some((region) => visibleWidth(region.trim()) > 0);
+      const regions = row.regions.map((region: Region, i: number) => this.renderRegion(region, widths[i] ?? 0));
+      const hasContent = regions.some((region: string) => visibleWidth(region.trim()) > 0);
       if (!hasContent) continue;
       lines.push(padToWidth(truncateToWidth(regions.join(" "), safeWidth), safeWidth));
     }

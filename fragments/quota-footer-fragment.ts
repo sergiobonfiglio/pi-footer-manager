@@ -3,7 +3,8 @@ import {
   FOOTER_MANAGER_REGISTER_FRAGMENT,
   FOOTER_MANAGER_UNREGISTER_FRAGMENT,
   type FooterFragmentRegistration,
-} from "../footer-manager/types";
+  type FooterRenderEnv,
+} from "../footer-manager/types.js";
 import { execSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -418,7 +419,7 @@ export default function (pi: ExtensionAPI) {
   const registration: FooterFragmentRegistration = {
     id: FRAGMENT_ID,
     label: "Current quota",
-    component: (env) => {
+    component: (env: FooterRenderEnv) => {
       let latestUsage: UsageSnapshot | null = null;
       let activeProvider: string | null = null;
       let disposed = false;

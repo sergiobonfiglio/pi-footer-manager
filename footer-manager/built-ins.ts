@@ -1,6 +1,6 @@
 import { buildSessionContext, type ExtensionContext, type Theme } from "@earendil-works/pi-coding-agent";
 import { homedir } from "node:os";
-import type { FooterFragmentRegistration } from "./types";
+import type { FooterFragmentRegistration, FooterRenderEnv } from "./types.js";
 
 export type BuiltInFragmentsOptions = {
   getSeparator: () => string;
@@ -129,16 +129,16 @@ function renderContextGauge(ctx: ExtensionContext, theme: Theme): string {
 
 export function createBuiltInFragments(options: BuiltInFragmentsOptions): FooterFragmentRegistration[] {
   return [
-    { id: "cwd.full", label: "CWD", component: ({ ctx, theme }) => ({ render: () => theme.fg("accent", collapseHome(ctx.cwd || process.cwd())) }) },
-    { id: "git.branch", label: "Git branch", component: ({ footerData, theme }) => ({ render: () => { const branch = footerData.getGitBranch(); return branch ? theme.fg("success", branch) : ""; } }) },
-    { id: "model.name", label: "Model", component: ({ ctx, theme }) => ({ render: () => theme.fg("muted", compactModel(ctx)) }) },
-    { id: "model.cost", label: "Model cost", component: ({ ctx, theme }) => ({ render: () => theme.fg("dim", renderModelCost(ctx)) }) },
-    { id: "model.cacheCost", label: "Model cache cost", component: ({ ctx, theme }) => ({ render: () => theme.fg("dim", renderModelCacheCost(ctx)) }) },
-    { id: "cache.hit", label: "Cache hit", component: ({ ctx, theme }) => ({ render: () => theme.fg("dim", renderCacheHit(ctx)) }) },
-    { id: "cache.hit_counts", label: "Cache hit with counts", component: ({ ctx, theme }) => ({ render: () => theme.fg("dim", renderCacheHitCounts(ctx)) }) },
-    { id: "thinking.level", label: "Thinking", component: ({ ctx, theme }) => ({ render: () => theme.fg("accent", getThinkingLevel(ctx)) }) },
-    { id: "context.gauge", label: "Context", component: ({ ctx, theme }) => ({ render: () => renderContextGauge(ctx, theme) }) },
-    { id: "cost.total", label: "Total cost", component: ({ ctx, theme }) => ({ render: () => theme.fg("dim", formatCost(getBranchAssistantUsage(ctx).cost)) }) },
-    { id: "statuses", label: "Statuses", component: ({ footerData, theme }) => ({ render: () => Array.from(footerData.getExtensionStatuses().values()).filter(Boolean).join(theme.fg("dim", options.getSeparator())) }) },
+    { id: "cwd.full", label: "CWD", component: ({ ctx, theme }: FooterRenderEnv) => ({ render: () => theme.fg("accent", collapseHome(ctx.cwd || process.cwd())) }) },
+    { id: "git.branch", label: "Git branch", component: ({ footerData, theme }: FooterRenderEnv) => ({ render: () => { const branch = footerData.getGitBranch(); return branch ? theme.fg("success", branch) : ""; } }) },
+    { id: "model.name", label: "Model", component: ({ ctx, theme }: FooterRenderEnv) => ({ render: () => theme.fg("muted", compactModel(ctx)) }) },
+    { id: "model.cost", label: "Model cost", component: ({ ctx, theme }: FooterRenderEnv) => ({ render: () => theme.fg("dim", renderModelCost(ctx)) }) },
+    { id: "model.cacheCost", label: "Model cache cost", component: ({ ctx, theme }: FooterRenderEnv) => ({ render: () => theme.fg("dim", renderModelCacheCost(ctx)) }) },
+    { id: "cache.hit", label: "Cache hit", component: ({ ctx, theme }: FooterRenderEnv) => ({ render: () => theme.fg("dim", renderCacheHit(ctx)) }) },
+    { id: "cache.hit_counts", label: "Cache hit with counts", component: ({ ctx, theme }: FooterRenderEnv) => ({ render: () => theme.fg("dim", renderCacheHitCounts(ctx)) }) },
+    { id: "thinking.level", label: "Thinking", component: ({ ctx, theme }: FooterRenderEnv) => ({ render: () => theme.fg("accent", getThinkingLevel(ctx)) }) },
+    { id: "context.gauge", label: "Context", component: ({ ctx, theme }: FooterRenderEnv) => ({ render: () => renderContextGauge(ctx, theme) }) },
+    { id: "cost.total", label: "Total cost", component: ({ ctx, theme }: FooterRenderEnv) => ({ render: () => theme.fg("dim", formatCost(getBranchAssistantUsage(ctx).cost)) }) },
+    { id: "statuses", label: "Statuses", component: ({ footerData, theme }: FooterRenderEnv) => ({ render: () => Array.from(footerData.getExtensionStatuses().values()).filter(Boolean).join(theme.fg("dim", options.getSeparator())) }) },
   ];
 }

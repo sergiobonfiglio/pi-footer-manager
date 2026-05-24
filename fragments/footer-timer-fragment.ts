@@ -4,7 +4,8 @@ import {
   FOOTER_MANAGER_REGISTER_FRAGMENT,
   FOOTER_MANAGER_UNREGISTER_FRAGMENT,
   type FooterFragmentRegistration,
-} from "../footer-manager/types";
+  type FooterRenderEnv,
+} from "../footer-manager/types.js";
 
 const FRAGMENT_ID = "timer.work";
 
@@ -34,7 +35,7 @@ export default function (pi: ExtensionAPI) {
   const registration: FooterFragmentRegistration = {
     id: FRAGMENT_ID,
     label: "Work timer",
-    component: (env) => {
+    component: (env: FooterRenderEnv) => {
       const interval = setInterval(() => {
         if (state.status === "running") env.invalidate();
       }, 1000);

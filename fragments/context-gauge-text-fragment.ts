@@ -3,7 +3,8 @@ import {
   FOOTER_MANAGER_REGISTER_FRAGMENT,
   FOOTER_MANAGER_UNREGISTER_FRAGMENT,
   type FooterFragmentRegistration,
-} from "../footer-manager/types";
+  type FooterRenderEnv,
+} from "../footer-manager/types.js";
 
 const FRAGMENT_ID = "context.gauge.text";
 
@@ -41,7 +42,7 @@ export default function (pi: ExtensionAPI) {
   const registration: FooterFragmentRegistration = {
     id: FRAGMENT_ID,
     label: "Context (text)",
-    component: ({ ctx, theme }) => ({
+    component: ({ ctx, theme }: FooterRenderEnv) => ({
       render: () => renderContextText(ctx, theme),
     }),
   };
