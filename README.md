@@ -14,6 +14,20 @@ One footer, many extensions: build flexible Pi footers from reusable fragments w
 - `fragments/quota-footer-fragment-text.ts` — text-focused quota usage display
 - `fragments/context-gauge-text-fragment.ts` — text version of context usage
 
+## Public API for custom fragment extensions
+
+External extensions can integrate with the footer manager through:
+
+```ts
+import {
+  FOOTER_MANAGER_REGISTER_FRAGMENT,
+  FOOTER_MANAGER_UNREGISTER_FRAGMENT,
+  type FooterFragmentRegistration,
+} from "pi-footer-manager/api";
+```
+
+This is the supported public integration surface for custom fragment extensions. It avoids fragile cross-extension relative imports and lets third-party fragment extensions live in their own repos or packages.
+
 ## How configuration works
 
 Layout is configured under `footerManager.layout` in Pi settings.
@@ -163,6 +177,8 @@ Other extensions should register fragments instead of calling `ctx.ui.setFooter(
 See detailed fragment API docs and examples in:
 
 - [`footer-manager/README.md`](./footer-manager/README.md)
+
+The public integration module for external fragment extensions is `pi-footer-manager/api`.
 
 ## Check
 

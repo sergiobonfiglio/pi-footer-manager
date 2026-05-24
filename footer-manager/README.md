@@ -10,7 +10,7 @@ It calls `ctx.ui.setFooter(...)` once, while other extensions contribute footer 
 import {
   FOOTER_MANAGER_REGISTER_FRAGMENT,
   type FooterFragmentRegistration,
-} from "./footer-manager/types";
+} from "pi-footer-manager/api";
 
 export default function (pi) {
   pi.on("session_start", async () => {
@@ -40,6 +40,8 @@ pi.events.emit("footer-manager:invalidate", { id: "my-extension.timer" });
 ```
 
 Invalidations are coalesced and the manager owns `tui.requestRender()`.
+
+For external extensions, `pi-footer-manager/api` is the supported integration surface. It exports the fragment event names and the main fragment/layout types without requiring fragile cross-extension relative imports.
 
 ## Layout configuration
 

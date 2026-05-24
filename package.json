@@ -9,7 +9,10 @@
     "extension",
     "footer-manager"
   ],
-  "exports": "./footer-manager/index.ts",
+  "exports": {
+    ".": "./footer-manager/index.ts",
+    "./api": "./footer-manager/api.ts"
+  },
   "files": [
     "footer-manager",
     "fragments",
