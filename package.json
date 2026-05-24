@@ -5,7 +5,7 @@
   "type": "module",
   "keywords": ["pi-package", "pi", "extension", "footer-manager"],
   "exports": "./footer-manager/index.ts",
-  "files": ["footer-manager", "fragments", "README.md"],
+  "files": ["footer-manager", "fragments", "assets", "README.md"],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/sergiobonfiglio/pi-footer-manager.git"
