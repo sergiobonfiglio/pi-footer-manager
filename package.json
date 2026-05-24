@@ -1,11 +1,21 @@
 {
   "name": "pi-footer-manager",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "One footer, many extensions: build flexible Pi footers from reusable fragments with configurable layout and built-in fragments instead of competing `setFooter()` calls. `pi-footer-manager` lets one extension own footer rendering while built-in and custom fragments are arranged through a shared API and flexible layout system.",
   "type": "module",
-  "keywords": ["pi-package", "pi", "extension", "footer-manager"],
+  "keywords": [
+    "pi-package",
+    "pi",
+    "extension",
+    "footer-manager"
+  ],
   "exports": "./footer-manager/index.ts",
-  "files": ["footer-manager", "fragments", "assets", "README.md"],
+  "files": [
+    "footer-manager",
+    "fragments",
+    "assets",
+    "README.md"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/sergiobonfiglio/pi-footer-manager.git"
