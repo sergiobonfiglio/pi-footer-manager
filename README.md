@@ -1,6 +1,8 @@
 # pi-footer-manager
 
-Pi footer manager extension plus example fragment extensions.
+One footer, many extensions: build flexible Pi footers from reusable fragments with configurable layout and built-in fragments instead of competing `setFooter()` calls.
+
+`pi-footer-manager` lets one extension own `ctx.ui.setFooter(...)` while built-in and custom fragments are arranged through a shared API, with flexible rows, regions, widths, alignment, and redraw/invalidation flow.
 
 ## Included extensions
 
