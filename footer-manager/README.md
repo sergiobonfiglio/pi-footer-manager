@@ -1,8 +1,8 @@
 # footer-manager
 
-`footer-manager` is the cooperative owner of Pi footer rendering. It calls `ctx.ui.setFooter(...)`; other extensions should register footer fragments instead of replacing the footer directly. Pi cannot enforce this yet, so disable conflicting extensions that call `ctx.ui.setFooter(...)`.
+`footer-manager` is the cooperative owner of Pi footer rendering.
 
-The local `minimal-footer` extension has been disabled by renaming its entrypoint to `minimal-footer/index.ts.disabled`.
+It calls `ctx.ui.setFooter(...)` once, while other extensions contribute footer fragments through a shared registration API instead of competing to replace the whole footer. Pi cannot enforce this yet, so disable conflicting extensions that also call `ctx.ui.setFooter(...)` directly.
 
 ## Register a fragment
 
@@ -29,9 +29,9 @@ export default function (pi) {
 }
 ```
 
-Fragment factories and `render()` are synchronous. Do async work in the fragment and cache state, then call `env.invalidate()`. Use `env.separator` when a fragment needs to join multiple internal values with the layout separator.
+Fragment factories and `render()` are synchronous. Do async work inside the fragment, cache state locally, then call `env.invalidate()` when the rendered output should refresh. Use `env.separator` when a fragment needs to join multiple internal values with the current layout separator.
 
-## Invalidate/redraw
+## Invalidate / redraw
 
 ```ts
 env.invalidate();
@@ -41,9 +41,19 @@ pi.events.emit("footer-manager:invalidate", { id: "my-extension.timer" });
 
 Invalidations are coalesced and the manager owns `tui.requestRender()`.
 
-## Layout config
+## Layout configuration
 
-Settings live under `footerManager.layout.rows`:
+Settings live under `footerManager.layout`.
+
+- `separator` controls how fragments are joined inside a region
+- `rows` is an array of footer rows
+- each row has `regions`
+- each region can set:
+  - `width`: a fraction like `0.35` or `"auto"`
+  - `align`: `"left"`, `"center"`, or `"right"`
+  - `fragments`: fragment ids to render in that region
+
+Example:
 
 ```json
 {
@@ -63,31 +73,50 @@ Settings live under `footerManager.layout.rows`:
 }
 ```
 
-Widths are optional and default to `"auto"`. When provided, widths can be fractions between `0` and `1`, or the string `"auto"`. In rows with auto regions, fractional regions are allocated first using their fraction of the full row width, then the remaining width is assigned to auto regions. Auto regions request their rendered content width; if the requests do not fit, regions are cut from right to left, so the rightmost region loses width first.
+Project settings override global settings. If project `footerManager` exists but is invalid, the default layout is used; global `footerManager` is not merged as fallback.
 
-For rows without auto regions, per-row widths should sum to `1`; positive non-1 sums are normalized with a warning. A non-auto row whose widths sum to `0`, invalid rows/regions, or invalid settings fall back to the built-in default layout.
+## Widths and overflow
 
-Example mixed row: `{ "width": 0.35, "align": "right", "fragments": ["model.name", "statuses"] }` with `{ "align": "left", "fragments": ["git.branch"] }` gives the fixed region 35% of the row and assigns the remaining 65% to the auto/default region.
+Widths are optional and default to `"auto"`.
 
-Project settings win over global settings. If project `footerManager` exists but is invalid, the default layout is used; global `footerManager` is not merged or used as fallback.
+- fractional regions get their width first
+- `"auto"` regions get the remaining width
+- if content does not fit, fragments are dropped before the last visible fragment is truncated
+- left- and center-aligned regions drop fragments from the right
+- right-aligned regions drop fragments from the left
 
-## Overflow behavior
+Mixed example:
 
-Each row is rendered to exactly the terminal width unless all content is empty, in which case the row is omitted. Each region renders inside its allocated width, with one literal space reserved between adjacent regions. Fractional widths are resolved first, then remaining width is allocated to auto regions. When auto regions overflow the remaining width, the rightmost region is cut first. If a region overflows, fragments are dropped based on alignment: left/center-aligned regions drop from the right, while right-aligned regions drop from the left. If one remaining fragment is still too wide, it is ANSI-safely truncated according to alignment.
+```json
+{
+  "regions": [
+    { "align": "left", "fragments": ["cwd.full", "git.branch"] },
+    { "width": 0.35, "align": "right", "fragments": ["model.name", "statuses"] }
+  ]
+}
+```
+
+This behaves roughly like:
+
+```text
+[ cwd.full > git.branch                    ][ model.name > statuses ]
+```
+
+For rows without auto regions, widths should sum to `1`. Positive non-`1` sums are normalized with a warning. Invalid rows, invalid regions, or zero-width fully fixed rows fall back to the built-in default layout.
 
 ## Built-in fragments
 
-- `cwd.full`
-- `git.branch`
-- `model.name`
-- `model.cost` (`↑$input ↓$output` per 1M tokens)
-- `model.cacheCost` (`Rread Wwrite` per 1M cached tokens)
-- `cache.hit` (`cache 72%`)
-- `cache.hit_counts` (`cache 95% R5.7M/W0`)
-- `thinking.level`
-- `context.gauge`
-- `cost.total`
-- `statuses`
+- `cwd.full` — full path of the current working directory
+- `git.branch` — current Git branch for the active working tree
+- `model.name` — active model name
+- `model.cost` — input/output token pricing for the active model
+- `model.cacheCost` — cached token read/write pricing for the active model
+- `cache.hit` — cache hit rate summary
+- `cache.hit_counts` — cache hit rate with read/write token counts
+- `thinking.level` — current reasoning/thinking level
+- `context.gauge` — graphical context usage indicator
+- `cost.total` — total accumulated session cost
+- `statuses` — status items contributed through Pi status APIs
 
 `statuses` preserves compatibility with extensions using `ctx.ui.setStatus(...)` by joining status values in insertion order with the layout separator.
 
