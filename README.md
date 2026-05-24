@@ -4,24 +4,24 @@ One footer, many extensions: build flexible Pi footers from reusable fragments w
 
 `pi-footer-manager` lets one extension own `ctx.ui.setFooter(...)` while built-in and custom fragments are arranged through a shared API, with flexible rows, regions, widths, alignment, and redraw/invalidation flow.
 
-## Install or test locally
+## Install or test
 
-Install from npm:
+Install permanently:
 
 ```bash
 pi install npm:pi-footer-manager
 ```
 
-Test from a local checkout without installing:
+Test without installing permanently:
 
 ```bash
-pi --no-extensions -e ~/repositories/pi-extensions/pi-footer-manager
+pi --no-extensions -e npm:pi-footer-manager
 ```
 
-To test it alongside your normal setup, omit `--no-extensions`:
+To load it alongside your normal setup:
 
 ```bash
-pi -e ~/repositories/pi-extensions/pi-footer-manager
+pi -e npm:pi-footer-manager
 ```
 
 ![pi-footer-manager screenshot](./assets/pi-footer-manager.png)
