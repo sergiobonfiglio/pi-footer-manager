@@ -13,8 +13,8 @@ interface RateWindow {
   label: string;
   usedPercent: number;
   resetsIn?: string;
+  detail?: string;
 }
-
 interface UsageSnapshot {
   provider: string;
   windows: RateWindow[];
@@ -218,7 +218,13 @@ async function fetchCopilotUsage(): Promise<UsageSnapshot> {
     const resetDate = data.quota_reset_date_utc ? new Date(data.quota_reset_date_utc) : undefined;
     const resetsIn = resetDate ? formatResetTime(resetDate) : undefined;
     const windows: RateWindow[] = [];
-    if (data.quota_snapshots?.premium_interactions) windows.push({ label: "Premium", usedPercent: clampPercent(100 - (data.quota_snapshots.premium_interactions.percent_remaining || 0)), resetsIn });
+    const premium = data.quota_snapshots?.premium_interactions;
+    if (premium) {
+      const creditsUsed = Number(premium.credits_used);
+      windows.push(premium.unlimited
+        ? { label: "Premium", usedPercent: 0, detail: `∞${Number.isFinite(creditsUsed) ? ` · ${creditsUsed} cr` : ""}`, resetsIn }
+        : { label: "Premium", usedPercent: clampPercent(100 - (premium.percent_remaining || 0)), resetsIn });
+    }
     if (data.quota_snapshots?.chat && !data.quota_snapshots.chat.unlimited) windows.push({ label: "Chat", usedPercent: clampPercent(100 - (data.quota_snapshots.chat.percent_remaining || 0)), resetsIn });
     return { provider: "Copilot", windows, fetchedAt: Date.now() };
   } catch (error) {
@@ -395,6 +401,9 @@ async function fetchUsageForProvider(provider: string): Promise<UsageSnapshot> {
 }
 
 function renderUsageWindow(window: RateWindow, theme: Theme, separator: string, provider?: string): string {
+  const reset = window.resetsIn ? theme.fg("dim", ` ${window.resetsIn}`) : "";
+  if (window.detail) return `${theme.fg("dim", window.label)} ${theme.fg("success", window.detail)}${reset}`;
+
   const clamped = clampPercent(window.usedPercent);
   const color = clamped >= 92 ? "error" : clamped >= 85 ? "warning" : "success";
   const pct = theme.fg(color, `${Math.round(clamped)}%`);
@@ -402,7 +411,6 @@ function renderUsageWindow(window: RateWindow, theme: Theme, separator: string, 
     const details = window.resetsIn ? `${theme.fg("dim", separator)}${theme.fg("dim", window.resetsIn)}` : "";
     return `${pct}${details}`;
   }
-  const reset = window.resetsIn ? theme.fg("dim", ` ${window.resetsIn}`) : "";
   return `${theme.fg("dim", window.label)} ${pct}${reset}`;
 }
 
