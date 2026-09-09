@@ -74,6 +74,23 @@ function getBranchAssistantUsage(ctx: ExtensionContext): { input: number; output
   return totals;
 }
 
+function getSessionCost(ctx: ExtensionContext): number {
+  let total = 0;
+  try {
+    for (const entry of ctx.sessionManager.getEntries()) {
+      const item = entry as any;
+      let usage;
+      if (item.type === "message" && (item.message?.role === "assistant" || item.message?.role === "toolResult")) {
+        usage = item.message.usage;
+      } else if ((item.type === "compaction" || item.type === "branch_summary") && item.usage) {
+        usage = item.usage;
+      }
+      total += Number(usage?.cost?.total) || 0;
+    }
+  } catch {}
+  return total;
+}
+
 function getCacheHit(ctx: ExtensionContext): { hitPercent: number; cacheRead: number; cacheWrite: number } | undefined {
   const { input, cacheRead, cacheWrite } = getBranchAssistantUsage(ctx);
   if (cacheRead === 0 && cacheWrite === 0) return undefined;
@@ -138,7 +155,7 @@ export function createBuiltInFragments(options: BuiltInFragmentsOptions): Footer
     { id: "cache.hit_counts", label: "Cache hit with counts", component: ({ ctx, theme }: FooterRenderEnv) => ({ render: () => theme.fg("dim", renderCacheHitCounts(ctx)) }) },
     { id: "thinking.level", label: "Thinking", component: ({ ctx, theme }: FooterRenderEnv) => ({ render: () => theme.fg("accent", getThinkingLevel(ctx)) }) },
     { id: "context.gauge", label: "Context", component: ({ ctx, theme }: FooterRenderEnv) => ({ render: () => renderContextGauge(ctx, theme) }) },
-    { id: "cost.total", label: "Total cost", component: ({ ctx, theme }: FooterRenderEnv) => ({ render: () => theme.fg("dim", formatCost(getBranchAssistantUsage(ctx).cost)) }) },
+    { id: "cost.total", label: "Total cost", component: ({ ctx, theme }: FooterRenderEnv) => ({ render: () => theme.fg("dim", formatCost(getSessionCost(ctx))) }) },
     { id: "statuses", label: "Statuses", component: ({ footerData, theme }: FooterRenderEnv) => ({ render: () => Array.from(footerData.getExtensionStatuses().values()).filter(Boolean).join(theme.fg("dim", options.getSeparator())) }) },
   ];
 }
