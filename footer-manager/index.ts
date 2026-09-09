@@ -376,7 +376,7 @@ class FooterManager {
     }, 0);
   }
 
-  private renderFragment(id: string, regionWidth: number): string | undefined {
+  private renderFragment(id: string, regionWidth: number, totalWidth: number): string | undefined {
     const entry = this.entries.get(id);
     if (!entry) {
       if (!this.unknownWarned.has(id) && !this.pendingUnknownWarnings.has(id)) {
@@ -393,29 +393,29 @@ class FooterManager {
     if (!entry.component) this.reconcileVisibleComponents();
     if (!entry.component) return undefined;
     try {
-      return stripNewlines(entry.component.render() || "");
+      return stripNewlines(entry.component.render(regionWidth, totalWidth) || "");
     } catch (error) {
       this.warn(`render:${id}`, `fragment '${id}' render failed: ${error instanceof Error ? error.message : String(error)}`);
       return undefined;
     }
   }
 
-  private renderRegionContent(region: Region, width: number): string {
+  private renderRegionContent(region: Region, width: number, totalWidth: number): string {
     if (width <= 0 || region.fragments.length === 0) return "";
     const sep = this.theme?.fg("dim", this.layout.separator) ?? this.layout.separator;
-    let parts = region.fragments.map((id: string) => this.renderFragment(id, width)).filter((part): part is string => part !== undefined && visibleWidth(part) > 0);
+    let parts = region.fragments.map((id: string) => this.renderFragment(id, width, totalWidth)).filter((part): part is string => part !== undefined && visibleWidth(part) > 0);
     while (parts.length > 1 && visibleWidth(parts.join(sep)) > width) {
       parts = region.align === "right" ? parts.slice(1) : parts.slice(0, -1);
     }
     return parts.length === 1 ? truncateToWidth(parts[0], width) : parts.join(sep);
   }
 
-  private measureRegion(region: Region, maxWidth: number): number {
-    return visibleWidth(this.renderRegionContent(region, maxWidth));
+  private measureRegion(region: Region, maxWidth: number, totalWidth: number): number {
+    return visibleWidth(this.renderRegionContent(region, maxWidth, totalWidth));
   }
 
-  private renderRegion(region: Region, width: number): string {
-    return alignText(this.renderRegionContent(region, width), width, region.align);
+  private renderRegion(region: Region, width: number, totalWidth: number): string {
+    return alignText(this.renderRegionContent(region, width, totalWidth), width, region.align);
   }
 
   render(width: number): string[] {
@@ -426,8 +426,8 @@ class FooterManager {
     for (const row of this.layout.rows) {
       const gapWidth = Math.max(0, row.regions.length - 1);
       const contentWidth = Math.max(0, safeWidth - gapWidth);
-      const widths = allocateWidths(row.regions, contentWidth, (region) => this.measureRegion(region, contentWidth));
-      const regions = row.regions.map((region: Region, i: number) => this.renderRegion(region, widths[i] ?? 0));
+      const widths = allocateWidths(row.regions, contentWidth, (region) => this.measureRegion(region, contentWidth, safeWidth));
+      const regions = row.regions.map((region: Region, i: number) => this.renderRegion(region, widths[i] ?? 0, safeWidth));
       const hasContent = regions.some((region: string) => visibleWidth(region.trim()) > 0);
       if (!hasContent) continue;
       lines.push(padToWidth(truncateToWidth(regions.join(" "), safeWidth), safeWidth));

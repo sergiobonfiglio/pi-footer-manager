@@ -172,7 +172,10 @@ row 2: [ context.gauge.text > timer.work                         ]
 Main built-ins provided by `footer-manager` include:
 
 - `cwd.full` — full path of the current working directory
+- `cwd.shortened` — current working directory, shortened from left to right when it exceeds half of the footer width
+- `cwd.last` — last directory of the current working directory
 - `git.branch` — current Git branch for the active working tree
+- `git.branch.shortened` — shortened Git branch, hidden when it matches the last directory name
 - `model.name` — active model name
 - `model.cost` — input/output token pricing for the active model
 - `model.cacheCost` — cached token read/write pricing for the active model

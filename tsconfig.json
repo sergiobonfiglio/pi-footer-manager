@@ -9,5 +9,5 @@
     "types": ["node"],
     "skipLibCheck": true
   },
-  "include": ["footer-manager/**/*.ts", "fragments/**/*.ts"]
+  "include": ["footer-manager/**/*.ts", "fragments/**/*.ts", "tests/**/*.ts"]
 }

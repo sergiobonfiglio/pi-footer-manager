@@ -29,7 +29,7 @@ export default function (pi) {
 }
 ```
 
-Fragment factories and `render()` are synchronous. Do async work inside the fragment, cache state locally, then call `env.invalidate()` when the rendered output should refresh. Use `env.separator` when a fragment needs to join multiple internal values with the current layout separator.
+Fragment factories and `render(width, totalWidth)` are synchronous. `width` is the region width available to the fragment and `totalWidth` is the full footer width; fragments that do not adapt to width may ignore them. Do async work inside the fragment, cache state locally, then call `env.invalidate()` when the rendered output should refresh. Use `env.separator` when a fragment needs to join multiple internal values with the current layout separator.
 
 ## Invalidate / redraw
 
@@ -109,7 +109,10 @@ For rows without auto regions, widths should sum to `1`. Positive non-`1` sums a
 ## Built-in fragments
 
 - `cwd.full` — full path of the current working directory
+- `cwd.shortened` — current working directory, shortened from left to right when it exceeds half of the footer width
+- `cwd.last` — last directory of the current working directory
 - `git.branch` — current Git branch for the active working tree
+- `git.branch.shortened` — shortened Git branch, hidden when it matches the last directory name
 - `model.name` — active model name
 - `model.cost` — input/output token pricing for the active model
 - `model.cacheCost` — cached token read/write pricing for the active model

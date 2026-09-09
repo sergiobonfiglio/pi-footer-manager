@@ -25,7 +25,7 @@ export type FooterRenderEnv = {
 };
 
 export type FooterFragmentComponent = {
-  render(): string;
+  render(width: number, totalWidth: number): string;
   dispose?(): void;
 };
 

@@ -29,8 +29,9 @@
   },
   "scripts": {
     "check": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test tests/*.test.ts",
     "pack:dry": "npm pack --dry-run",
-    "release:check": "npm run check && npm run pack:dry",
+    "release:check": "npm run check && npm test && npm run pack:dry",
     "publish:public": "npm publish --access public"
   },
   "pi": {

@@ -1,5 +1,7 @@
 import { buildSessionContext, type ExtensionContext, type Theme } from "@earendil-works/pi-coding-agent";
+import { visibleWidth } from "@earendil-works/pi-tui";
 import { homedir } from "node:os";
+import { basename } from "node:path";
 import type { FooterFragmentRegistration, FooterRenderEnv } from "./types.ts";
 
 export type BuiltInFragmentsOptions = {
@@ -30,6 +32,50 @@ function formatModelRate(rate: unknown): string {
 function collapseHome(cwd: string): string {
   const home = homedir();
   return home && (cwd === home || cwd.startsWith(home + "/")) ? `~${cwd.slice(home.length)}` : cwd;
+}
+
+function shortenDirectory(name: string, targetWidth: number): string {
+  const characters = Array.from(name);
+  const originalWidth = visibleWidth(name);
+  let shortest = name;
+
+  for (let sideLength = Math.floor((characters.length - 1) / 2); sideLength >= 2; sideLength--) {
+    const candidate = `${characters.slice(0, sideLength).join("")}..${characters.slice(-sideLength).join("")}`;
+    const candidateWidth = visibleWidth(candidate);
+    if (candidateWidth >= originalWidth) continue;
+    shortest = candidate;
+    if (candidateWidth <= targetWidth) return candidate;
+  }
+
+  return shortest;
+}
+
+export function shortenPath(path: string, maxWidth: number): string {
+  const targetWidth = Math.max(0, Math.floor(maxWidth));
+  let overflow = visibleWidth(path) - targetWidth;
+  if (overflow <= 0) return path;
+
+  const parts = path.split(/([/\\]+)/);
+  for (let index = 0; index < parts.length && overflow > 0; index += 2) {
+    const name = parts[index] ?? "";
+    const originalWidth = visibleWidth(name);
+    const shortened = shortenDirectory(name, Math.max(0, originalWidth - overflow));
+    const reduction = originalWidth - visibleWidth(shortened);
+    if (reduction <= 0) continue;
+    parts[index] = shortened;
+    overflow -= reduction;
+  }
+
+  return parts.join("");
+}
+
+export function shortenPathForFooter(path: string, regionWidth: number, totalWidth: number): string {
+  const maxWidth = Math.min(Math.max(0, Math.floor(regionWidth)), Math.floor(Math.max(0, totalWidth) / 2));
+  return shortenPath(path, maxWidth);
+}
+
+export function lastDirectory(cwd: string): string {
+  return basename(cwd) || cwd;
 }
 
 function compactModel(ctx: ExtensionContext): string {
@@ -147,7 +193,10 @@ function renderContextGauge(ctx: ExtensionContext, theme: Theme): string {
 export function createBuiltInFragments(options: BuiltInFragmentsOptions): FooterFragmentRegistration[] {
   return [
     { id: "cwd.full", label: "CWD", component: ({ ctx, theme }: FooterRenderEnv) => ({ render: () => theme.fg("accent", collapseHome(ctx.cwd || process.cwd())) }) },
+    { id: "cwd.shortened", label: "Shortened CWD", component: ({ ctx, theme }: FooterRenderEnv) => ({ render: (width, totalWidth) => theme.fg("accent", shortenPathForFooter(collapseHome(ctx.cwd || process.cwd()), width, totalWidth)) }) },
+    { id: "cwd.last", label: "Last CWD directory", component: ({ ctx, theme }: FooterRenderEnv) => ({ render: () => theme.fg("accent", lastDirectory(ctx.cwd || process.cwd())) }) },
     { id: "git.branch", label: "Git branch", component: ({ footerData, theme }: FooterRenderEnv) => ({ render: () => { const branch = footerData.getGitBranch(); return branch ? theme.fg("success", branch) : ""; } }) },
+    { id: "git.branch.shortened", label: "Shortened Git branch", component: ({ ctx, footerData, theme }: FooterRenderEnv) => ({ render: (width, totalWidth) => { const branch = footerData.getGitBranch(); return branch && branch !== lastDirectory(ctx.cwd || process.cwd()) ? theme.fg("success", shortenPathForFooter(branch, width, totalWidth)) : ""; } }) },
     { id: "model.name", label: "Model", component: ({ ctx, theme }: FooterRenderEnv) => ({ render: () => theme.fg("muted", compactModel(ctx)) }) },
     { id: "model.cost", label: "Model cost", component: ({ ctx, theme }: FooterRenderEnv) => ({ render: () => theme.fg("dim", renderModelCost(ctx)) }) },
     { id: "model.cacheCost", label: "Model cache cost", component: ({ ctx, theme }: FooterRenderEnv) => ({ render: () => theme.fg("dim", renderModelCacheCost(ctx)) }) },
