@@ -18,6 +18,7 @@ interface RateWindow {
 interface UsageSnapshot {
   provider: string;
   windows: RateWindow[];
+  resetCredits?: number;
   error?: string;
   fetchedAt: number;
 }
@@ -251,7 +252,13 @@ async function fetchCodexUsage(): Promise<UsageSnapshot> {
       const sw = data.rate_limit.secondary_window;
       windows.push({ label: getWindowLabel(typeof sw.limit_window_seconds === "number" ? sw.limit_window_seconds * 1000 : undefined, "Week"), usedPercent: clampPercent(sw.used_percent || 0), resetsIn: sw.reset_at ? formatResetTime(new Date(sw.reset_at * 1000)) : undefined });
     }
-    return { provider: "Codex", windows, fetchedAt: Date.now() };
+    const resetCredits = Number(data.rate_limit_reset_credits?.available_count);
+    return {
+      provider: "Codex",
+      windows,
+      resetCredits: Number.isSafeInteger(resetCredits) && resetCredits > 0 ? resetCredits : undefined,
+      fetchedAt: Date.now(),
+    };
   } catch (error) {
     return { provider: "Codex", windows: [], error: String(error), fetchedAt: Date.now() };
   }
@@ -414,9 +421,11 @@ function renderUsageWindow(window: RateWindow, theme: Theme, separator: string, 
   return `${theme.fg("dim", window.label)} ${pct}${reset}`;
 }
 
-function renderUsage(usage: UsageSnapshot, theme: Theme, separator: string): string {
+export function renderUsage(usage: UsageSnapshot, theme: Theme, separator: string): string {
   if (!usage.windows.length) return "";
-  return [theme.fg("accent", usage.provider), ...usage.windows.map((window) => renderUsageWindow(window, theme, separator, usage.provider))].join(theme.fg("dim", separator));
+  const parts = [theme.fg("accent", usage.provider), ...usage.windows.map((window) => renderUsageWindow(window, theme, separator, usage.provider))];
+  if (usage.resetCredits) parts.push(theme.fg("dim", `${usage.resetCredits}⟳`));
+  return parts.join(theme.fg("dim", separator));
 }
 
 export default function (pi: ExtensionAPI) {
