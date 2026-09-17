@@ -147,12 +147,12 @@ function getCacheHit(ctx: ExtensionContext): { hitPercent: number; cacheRead: nu
 
 function renderCacheHit(ctx: ExtensionContext): string {
   const cache = getCacheHit(ctx);
-  return cache ? `cache ${cache.hitPercent}%` : "";
+  return cache ? `CH ${cache.hitPercent}%` : "";
 }
 
 function renderCacheHitCounts(ctx: ExtensionContext): string {
   const cache = getCacheHit(ctx);
-  return cache ? `cache ${cache.hitPercent}% R${formatTokens(cache.cacheRead)}/W${formatTokens(cache.cacheWrite)}` : "";
+  return cache ? `CH ${cache.hitPercent}% R${formatTokens(cache.cacheRead)}/W${formatTokens(cache.cacheWrite)}` : "";
 }
 
 function getThinkingLevel(ctx: ExtensionContext): string {
