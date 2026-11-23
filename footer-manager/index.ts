@@ -275,7 +275,8 @@ class FooterManager {
           this.warn(`layout:${source}:region:${label}:align`, `${source} footer region ${label} has invalid align; using default layout`);
           return undefined;
         }
-        if (!Array.isArray(fragments) || !fragments.every((id) => typeof id === "string")) {
+        const validItem = (item: unknown): boolean => typeof item === "string" || (!!item && typeof item === "object" && !Array.isArray(item) && typeof (item as { text?: unknown }).text === "string");
+        if (!Array.isArray(fragments) || !fragments.every((item) => Array.isArray(item) ? item.every(validItem) : validItem(item))) {
           this.warn(`layout:${source}:region:${label}:fragments`, `${source} footer region ${label} has invalid fragments; using default layout`);
           return undefined;
         }
@@ -334,7 +335,11 @@ class FooterManager {
       for (const region of row.regions) {
         const width = region.width ?? "auto";
         if (!isAutoWidth(width) && width <= 0) continue;
-        for (const id of region.fragments) ids.add(id);
+        for (const fragment of region.fragments) {
+          for (const item of Array.isArray(fragment) ? fragment : [fragment]) {
+            if (typeof item === "string") ids.add(item);
+          }
+        }
       }
     }
     return ids;
@@ -403,7 +408,18 @@ class FooterManager {
   private renderRegionContent(region: Region, width: number, totalWidth: number): string {
     if (width <= 0 || region.fragments.length === 0) return "";
     const sep = this.theme?.fg("dim", this.layout.separator) ?? this.layout.separator;
-    let parts = region.fragments.map((id: string) => this.renderFragment(id, width, totalWidth)).filter((part): part is string => part !== undefined && visibleWidth(part) > 0);
+    let parts = region.fragments.map((fragment) => {
+      const items = Array.isArray(fragment) ? fragment : [fragment];
+      let hasVisibleFragment = false;
+      const text = items.map((item) => {
+        if (typeof item !== "string") return stripNewlines(item.text);
+        const rendered = this.renderFragment(item, width, totalWidth) ?? "";
+        if (visibleWidth(rendered.trim()) > 0) hasVisibleFragment = true;
+        return rendered;
+      }).join("");
+      if (Array.isArray(fragment) && items.some((item) => typeof item === "string") && !hasVisibleFragment) return "";
+      return text;
+    }).filter((part) => visibleWidth(part) > 0);
     while (parts.length > 1 && visibleWidth(parts.join(sep)) > width) {
       parts = region.align === "right" ? parts.slice(1) : parts.slice(0, -1);
     }

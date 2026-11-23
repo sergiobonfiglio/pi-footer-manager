@@ -53,7 +53,9 @@ Settings live under `footerManager.layout`.
 - each region can set:
   - `width`: a fraction like `0.35` or `"auto"`
   - `align`: `"left"`, `"center"`, or `"right"`
-  - `fragments`: fragment ids to render in that region
+  - `fragments`: fragment IDs, literal text objects (`{ "text": "..." }`), or groups of these in an array. Group entries are concatenated without separators; top-level entries use the configured separator. Groups are dropped as a unit when space is limited. Groups containing fragment IDs are hidden when all those fragments are empty, even if custom text separators remain. Literal-only groups stay visible.
+
+For example, `"fragments": ["cwd.full", ["git.branch", { "text": " " }, "gitlab.mr"], "context.gauge"]` places a space between the branch and MR, with separators around the group. Nesting groups inside groups is not supported.
 
 Example:
 
@@ -113,6 +115,7 @@ For rows without auto regions, widths should sum to `1`. Positive non-`1` sums a
 - `cwd.last` — last directory of the current working directory
 - `git.branch` — current Git branch for the active working tree
 - `git.branch.shortened` — shortened Git branch, hidden when it matches the last directory name
+- `gitlab.mr` — optional comma-separated, underlined clickable links to open GitLab merge requests for the current branch. Add it to a layout to enable it; requires an authenticated `glab` CLI. Refreshes on branch changes and every minute; errors are hidden.
 - `model.name` — active model name
 - `model.cost` — input/output token pricing for the active model
 - `model.cacheCost` — cached token read/write pricing for the active model

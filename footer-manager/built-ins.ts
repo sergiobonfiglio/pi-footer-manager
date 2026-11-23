@@ -3,6 +3,8 @@ import { visibleWidth } from "@earendil-works/pi-tui";
 import { homedir } from "node:os";
 import { basename } from "node:path";
 import type { FooterFragmentRegistration, FooterRenderEnv } from "./types.ts";
+import { createGitlabMrFragment } from "./gitlab-mr.ts";
+import { jiraField } from "./jira.ts";
 
 export type BuiltInFragmentsOptions = {
   getSeparator: () => string;
@@ -197,6 +199,10 @@ export function createBuiltInFragments(options: BuiltInFragmentsOptions): Footer
     { id: "cwd.last", label: "Last CWD directory", component: ({ ctx, theme }: FooterRenderEnv) => ({ render: () => theme.fg("accent", lastDirectory(ctx.cwd || process.cwd())) }) },
     { id: "git.branch", label: "Git branch", component: ({ footerData, theme }: FooterRenderEnv) => ({ render: () => { const branch = footerData.getGitBranch(); return branch ? theme.fg("success", branch) : ""; } }) },
     { id: "git.branch.shortened", label: "Shortened Git branch", component: ({ ctx, footerData, theme }: FooterRenderEnv) => ({ render: (width, totalWidth) => { const branch = footerData.getGitBranch(); return branch && branch !== lastDirectory(ctx.cwd || process.cwd()) ? theme.fg("success", shortenPathForFooter(branch, width, totalWidth)) : ""; } }) },
+    { id: "gitlab.mr", label: "GitLab merge requests", component: createGitlabMrFragment },
+    { id: "jira.key", label: "Jira key", component: (env) => jiraField(env, "key") },
+    { id: "jira.title", label: "Jira title", component: (env) => jiraField(env, "title") },
+    { id: "jira.status", label: "Jira status", component: (env) => jiraField(env, "status") },
     { id: "model.name", label: "Model", component: ({ ctx, theme }: FooterRenderEnv) => ({ render: () => theme.fg("muted", compactModel(ctx)) }) },
     { id: "model.cost", label: "Model cost", component: ({ ctx, theme }: FooterRenderEnv) => ({ render: () => theme.fg("dim", renderModelCost(ctx)) }) },
     { id: "model.cacheCost", label: "Model cache cost", component: ({ ctx, theme }: FooterRenderEnv) => ({ render: () => theme.fg("dim", renderModelCacheCost(ctx)) }) },

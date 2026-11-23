@@ -58,7 +58,9 @@ Layout is configured under `footerManager.layout` in Pi settings.
 - each region can set:
   - `width`: fraction like `0.35` or `"auto"`
   - `align`: `"left"`, `"center"`, or `"right"`
-  - `fragments`: fragment ids to render in that region
+  - `fragments`: fragment IDs, literal text objects (`{ "text": "..." }`), or groups of these in an array. Group entries are concatenated without separators; top-level entries use the configured separator. Groups are dropped as a unit when space is limited. Groups containing fragment IDs are hidden when all those fragments are empty, even if custom text separators remain. Literal-only groups stay visible.
+
+For example, `"fragments": ["cwd.full", ["git.branch", { "text": " " }, "gitlab.mr"], "context.gauge"]` places a space between the branch and MR, with separators around the group. Nesting groups inside groups is not supported.
 
 Project settings override global settings.
 
@@ -174,6 +176,9 @@ Main built-ins provided by `footer-manager` include:
 - `cwd.full` — full path of the current working directory
 - `cwd.shortened` — current working directory, shortened from left to right when it exceeds half of the footer width
 - `cwd.last` — last directory of the current working directory
+- `jira.key` — Jira key extracted from the current branch
+- `jira.title` — Jira issue title
+- `jira.status` — Jira issue status
 - `git.branch` — current Git branch for the active working tree
 - `git.branch.shortened` — shortened Git branch, hidden when it matches the last directory name
 - `model.name` — active model name
@@ -185,6 +190,8 @@ Main built-ins provided by `footer-manager` include:
 - `context.gauge` — graphical context usage indicator
 - `cost.total` — total accumulated session cost
 - `statuses` — status items contributed through Pi status APIs
+
+Jira fragments are optional layout entries. Branches must contain a key such as `ABC-123`. Issue details and clickable terminal links require an installed, authenticated `twg` CLI (or `acli` when `twg` is not installed). They refresh on branch changes and every minute. The key remains visible if lookup fails; unavailable title and status are blank. Links require terminal OSC 8 support.
 
 The included fragment extensions add examples like:
 

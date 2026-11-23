@@ -32,11 +32,15 @@ export type FooterFragmentComponent = {
 export type FooterRegionAlign = "left" | "center" | "right";
 export type FooterRegionWidth = number | "auto";
 
+export type FooterFragmentLiteral = { text: string };
+export type FooterFragmentItem = string | FooterFragmentLiteral;
+export type FooterFragment = FooterFragmentItem | FooterFragmentItem[];
+
 export type FooterRegionConfig = {
   name?: string;
   width?: FooterRegionWidth;
   align: FooterRegionAlign;
-  fragments: string[];
+  fragments: FooterFragment[];
 };
 
 export type FooterRowConfig = {
