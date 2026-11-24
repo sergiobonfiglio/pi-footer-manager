@@ -52,7 +52,8 @@ export function jiraField(env: FooterRenderEnv, field: "key" | "title" | "status
     });
   };
   const unsubscribe = env.footerData.onBranchChange(refresh);
-  const timer = setInterval(refresh, 60000); timer.unref();
+  const timer = field === "status" ? setInterval(refresh, 10 * 60 * 1000) : undefined;
+  timer?.unref();
   refresh();
   return { render: () => branch === (env.footerData.getGitBranch() || "") ? text : "", dispose: () => { disposed = true; generation++; clearInterval(timer); unsubscribe(); } };
 }

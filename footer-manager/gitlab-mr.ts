@@ -45,11 +45,9 @@ export function createGitlabMrFragment(env: FooterRenderEnv): FooterFragmentComp
     fetchPage(1);
   };
   const unsubscribe = env.footerData.onBranchChange(refresh);
-  const timer = setInterval(refresh, 60000);
-  timer.unref();
   refresh();
   return {
     render: () => branch === (env.footerData.getGitBranch() || "") ? text : "",
-    dispose: () => { disposed = true; generation++; clearInterval(timer); unsubscribe(); },
+    dispose: () => { disposed = true; generation++; unsubscribe(); },
   };
 }

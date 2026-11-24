@@ -191,7 +191,7 @@ Main built-ins provided by `footer-manager` include:
 - `cost.total` — total accumulated session cost
 - `statuses` — status items contributed through Pi status APIs
 
-Jira fragments are optional layout entries. Branches must contain a key such as `ABC-123`. Issue details and clickable terminal links require an installed, authenticated `twg` CLI (or `acli` when `twg` is not installed). They refresh on branch changes and every minute. The key remains visible if lookup fails; unavailable title and status are blank. Links require terminal OSC 8 support.
+Jira fragments are optional layout entries. Branches must contain a key such as `ABC-123`. Issue details and clickable terminal links require an installed, authenticated `twg` CLI (or `acli` when `twg` is not installed). They refresh on initialization and branch changes; only `jira.status` also refreshes periodically, every 10 minutes. The key remains visible if lookup fails; unavailable title and status are blank. Links require terminal OSC 8 support.
 
 The included fragment extensions add examples like:
 

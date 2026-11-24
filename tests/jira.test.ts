@@ -1,4 +1,5 @@
 import { test } from "node:test";
+import { createGitlabMrFragment } from "../footer-manager/gitlab-mr.ts";
 import { strict as assert } from "node:assert";
 import { jiraField, jiraKey, jiraLink, jiraUrl } from "../footer-manager/jira.ts";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
@@ -53,6 +54,17 @@ test("falls back to acli when twg is missing", async () => {
     process.env.PATH = originalPath;
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test("only Jira status polls, at a ten-minute interval", (t) => {
+  const interval = t.mock.method(globalThis, "setInterval", () => ({ unref() {} }) as any);
+  const clear = t.mock.method(globalThis, "clearInterval", () => {});
+  const env = { ctx: { cwd: "/tmp" }, footerData: { getGitBranch: () => "", onBranchChange: () => () => {} }, invalidate: () => {} } as any;
+  const components = [createGitlabMrFragment(env), jiraField(env, "key"), jiraField(env, "title"), jiraField(env, "status")];
+  assert.equal(interval.mock.callCount(), 1);
+  assert.equal(interval.mock.calls[0].arguments[1], 600000);
+  components.forEach(component => component.dispose?.());
+  assert.ok(clear.mock.calls.some(call => call.arguments[0] === interval.mock.calls[0].result));
 });
 
 test("extracts Jira keys from branches", () => {

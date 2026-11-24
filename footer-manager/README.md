@@ -115,7 +115,7 @@ For rows without auto regions, widths should sum to `1`. Positive non-`1` sums a
 - `cwd.last` — last directory of the current working directory
 - `git.branch` — current Git branch for the active working tree
 - `git.branch.shortened` — shortened Git branch, hidden when it matches the last directory name
-- `gitlab.mr` — optional comma-separated, underlined clickable links to open GitLab merge requests for the current branch. Add it to a layout to enable it; requires an authenticated `glab` CLI. Refreshes on branch changes and every minute; errors are hidden.
+- `gitlab.mr` — optional comma-separated, underlined clickable links to open GitLab merge requests for the current branch. Add it to a layout to enable it; requires an authenticated `glab` CLI. Refreshes on initialization and branch changes only; errors are hidden.
 - `model.name` — active model name
 - `model.cost` — input/output token pricing for the active model
 - `model.cacheCost` — cached token read/write pricing for the active model
